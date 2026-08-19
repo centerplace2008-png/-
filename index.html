@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>夜桜テスト管理カレンダー Pro Mobile</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="夜桜カレンダー">
+  <title>夜桜テスト管理カレンダー Pro Mobile (Firebase版)</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
@@ -152,7 +155,7 @@
     }
     .fab-btn:active { transform: scale(0.9) rotate(90deg); }
 
-    /* --- スマホ特化：ボトムシート（下スワイプで閉じる機能対応） --- */
+    /* --- スマホ特化：ボトムシート --- */
     .modal, .fullscreen-overlay { 
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
       background-color: rgba(0, 0, 0, 0.75); z-index: 1000; backdrop-filter: blur(5px);
@@ -171,7 +174,6 @@
     }
     @keyframes slideUp { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
 
-    /* ボトムシートの取っ手 */
     .sheet-handle { 
       width: 44px; height: 5px; background: rgba(255,255,255,0.25); border-radius: 3px; 
       margin: 0 auto 15px auto; cursor: grab; 
@@ -228,14 +230,80 @@
     .spinner-rings div:nth-child(3) { animation-delay: -0.15s; width: 60%; height: 60%; top: 20%; left: 20%; border-top-color: var(--general-color); }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .loader-text { color: #fff; font-size: 1rem; letter-spacing: 2px; font-weight: 300; text-shadow: 0 0 8px var(--yozakura-pink); }
-    .loader-bar-bg { width: 180px; height: 2px; background: rgba(255,255,255,0.1); margin-top: 15px; border-radius: 2px; overflow: hidden; }
-    .loader-bar-fill { height: 100%; width: 30%; background: linear-gradient(90deg, var(--yozakura-purple), var(--yozakura-pink)); animation: loading-flow 2s infinite linear; }
-    @keyframes loading-flow { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
 
     #startup-screen { display: flex; z-index: 3000; }
-    .startup-box { background: var(--bg-dark); border-radius: 16px; text-align: center; padding: 30px 20px; width: 90%; max-width: 400px; border: 1px solid var(--yozakura-purple); }
+    .startup-box { background: var(--bg-dark); border-radius: 16px; text-align: center; padding: 25px 20px; width: 90%; max-width: 440px; border: 1px solid var(--yozakura-purple); }
     .textbook-item { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 5px; margin-bottom: 8px; }
   </style>
+
+  <!-- Firebase Modular SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { 
+      getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    window.FirebaseBridge = {
+      app: null,
+      db: null,
+      unsubSchedules: null,
+      unsubTextbooks: null,
+
+      init(config) {
+        try {
+          this.app = initializeApp(config);
+          this.db = getFirestore(this.app);
+          return true;
+        } catch (e) {
+          console.error(e);
+          return false;
+        }
+      },
+
+      listenData(onDataUpdated) {
+        if (!this.db) return;
+
+        // 教材コレクションのリアルタイム監視
+        this.unsubTextbooks = onSnapshot(collection(this.db, "textbooks"), snapshot => {
+          window.masterTextbooks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          onDataUpdated();
+        }, err => console.error("Textbooks sync error:", err));
+
+        // 予定コレクションのリアルタイム監視
+        this.unsubSchedules = onSnapshot(collection(this.db, "schedules"), snapshot => {
+          window.schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          onDataUpdated();
+        }, err => console.error("Schedules sync error:", err));
+      },
+
+      async addSchedule(data) {
+        return await addDoc(collection(this.db, "schedules"), data);
+      },
+
+      async updateSchedule(id, data) {
+        const ref = doc(this.db, "schedules", id);
+        return await updateDoc(ref, data);
+      },
+
+      async deleteSchedule(id) {
+        return await deleteDoc(doc(this.db, "schedules", id));
+      },
+
+      async saveMasterData(textbooks) {
+        const batch = writeBatch(this.db);
+        const existingDocs = await getDocs(collection(this.db, "textbooks"));
+        existingDocs.forEach(d => batch.delete(d.ref));
+
+        textbooks.forEach(tb => {
+          const ref = doc(collection(this.db, "textbooks"));
+          batch.set(ref, { name: tb.name, startPage: tb.startPage, endPage: tb.endPage });
+        });
+        return await batch.commit();
+      }
+    };
+
+    window.dispatchEvent(new CustomEvent('firebaseBridgeReady'));
+  </script>
 </head>
 <body>
 
@@ -244,19 +312,21 @@
     <i class="fa-solid fa-plus"></i>
   </button>
 
+  <!-- スタートアップ：Firebase設定入力画面 -->
   <div class="fullscreen-overlay" id="startup-screen">
     <div class="startup-box">
-      <h2 style="color:var(--yozakura-pink); margin-bottom:10px; font-size:1.3rem;"><i class="fa-solid fa-link"></i> データベース接続</h2>
-      <p style="color:var(--text-sub); margin-bottom:20px; font-size:0.85rem;">発行したWebアプリ(GAS)のURLを入力してください。</p>
-      <input type="url" id="gas-url-input" placeholder="https://script.google.com/.../exec" style="width:100%; padding:12px; margin-bottom:20px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid #c77dff; border-radius:8px;">
-      <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="connectGas()">接続を開始する</button>
+      <h2 style="color:var(--yozakura-pink); margin-bottom:8px; font-size:1.25rem;"><i class="fa-solid fa-fire"></i> Firebase 接続設定</h2>
+      <p style="color:var(--text-sub); margin-bottom:12px; font-size:0.8rem; text-align:left; line-height:1.4;">
+        Firebase Consoleで発行された <code>firebaseConfig</code> のコード（またはJSON）をそのまま貼り付けてください。
+      </p>
+      <textarea id="firebase-config-input" placeholder='{ "apiKey": "...", "projectId": "..." }' rows="6" style="width:100%; padding:10px; margin-bottom:15px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid #c77dff; border-radius:8px; font-size:0.75rem; font-family:monospace;"></textarea>
+      <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="connectFirebase()">Firebaseに接続する</button>
     </div>
   </div>
 
   <div id="loader">
     <div class="spinner-rings"><div></div><div></div><div></div></div>
     <div class="loader-text" id="loader-msg">読み込み中...</div>
-    <div class="loader-bar-bg"><div class="loader-bar-fill"></div></div>
   </div>
 
   <header>
@@ -433,10 +503,9 @@
         <div><label style="font-size:0.75rem;">3周目+</label><input type="color" id="setting-iter3-color"></div>
       </div>
 
-      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-database"></i> データベース接続URL</h4>
+      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-database"></i> データベース連携</h4>
       <div class="form-group">
-        <input type="text" id="settings-gas-url" readonly style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">
-        <button class="btn btn-danger" onclick="disconnectGas()" style="width:100%; justify-content:center;">接続を解除</button>
+        <button class="btn btn-danger" onclick="disconnectFirebase()" style="width:100%; justify-content:center;">Firebase 接続設定を初期化</button>
       </div>
 
       <div class="modal-actions" style="border-top: 1px solid var(--border-color); padding-top:15px; margin-top:15px;">
@@ -448,11 +517,10 @@
 
   <script>
     let currentDate = new Date();
-    let masterTextbooks = [];
-    let schedules = [];
+    window.masterTextbooks = [];
+    window.schedules = [];
     let selectedSchedule = null;
     let currentAddType = 'study';
-    let isDataLoaded = false;
     let isAnimating = false;
     let isEditingMode = false;
     let activeDailyDateStr = "";
@@ -466,21 +534,80 @@
     window.addEventListener('DOMContentLoaded', () => {
       applySavedColors();
       buildScheduleColorPalette();
-      
-      const savedUrl = localStorage.getItem('yozakuraGasUrl');
-      if (!savedUrl) {
-        document.getElementById('startup-screen').style.display = 'flex';
-      } else {
-        document.getElementById('startup-screen').style.display = 'none';
-        document.getElementById('main-content-area').style.display = 'block';
-        loadData(); 
-      }
       setupEventListeners();
       setupSwipeEvents();
-      setupSheetSwipeEvents(); // ボトムシートの下スワイプで閉じる機能を開始！
+      setupSheetSwipeEvents();
     });
 
-    // --- 【新規実装】ボトムシートを下にスワイプして閉じる機能 ---
+    window.addEventListener('firebaseBridgeReady', () => {
+      const savedConfig = localStorage.getItem('yozakuraFirebaseConfig');
+      if (savedConfig) {
+        try {
+          const config = JSON.parse(savedConfig);
+          startFirebaseApp(config);
+        } catch (e) {
+          document.getElementById('startup-screen').style.display = 'flex';
+        }
+      } else {
+        document.getElementById('startup-screen').style.display = 'flex';
+      }
+    });
+
+    function parseConfigInput(rawInput) {
+      let trimmed = rawInput.trim();
+      if (trimmed.startsWith("const firebaseConfig =")) {
+        trimmed = trimmed.replace("const firebaseConfig =", "").replace(/;$/, "").trim();
+      }
+      try {
+        return JSON.parse(trimmed);
+      } catch (e) {
+        try {
+          return new Function(`return ${trimmed}`)();
+        } catch (err) {
+          return null;
+        }
+      }
+    }
+
+    function connectFirebase() {
+      const raw = document.getElementById('firebase-config-input').value;
+      const config = parseConfigInput(raw);
+      if (!config || !config.projectId) {
+        alert('正しいFirebase設定オブジェクトを入力してください。');
+        return;
+      }
+      localStorage.setItem('yozakuraFirebaseConfig', JSON.stringify(config));
+      startFirebaseApp(config);
+    }
+
+    function startFirebaseApp(config) {
+      const success = window.FirebaseBridge.init(config);
+      if (success) {
+        document.getElementById('startup-screen').style.display = 'none';
+        document.getElementById('main-content-area').style.display = 'block';
+
+        // リアルタイム同期リスナー開始
+        window.FirebaseBridge.listenData(() => {
+          populateTextbookSelect();
+          renderCalendar();
+          renderLibrary();
+          if (document.getElementById('daily-modal').style.display === 'flex' && activeDailyDateStr) {
+            openDailyModal(activeDailyDateStr);
+          }
+        });
+      } else {
+        alert('Firebaseの初期化に失敗しました。設定を確認してください。');
+      }
+    }
+
+    function disconnectFirebase() {
+      if (confirm('Firebase接続設定を初期化しますか？')) {
+        localStorage.removeItem('yozakuraFirebaseConfig');
+        location.reload();
+      }
+    }
+
+    // --- ボトムシートの下スワイプで閉じる機能 ---
     function setupSheetSwipeEvents() {
       const modals = document.querySelectorAll('.modal');
       modals.forEach(modal => {
@@ -492,11 +619,10 @@
         let isDragging = false;
 
         content.addEventListener('touchstart', e => {
-          // シート内のスクロール位置が一番上のときだけスワイプでのクローズを許可
           if (content.scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isDragging = true;
-            content.style.transition = 'none'; // 指への追従をスムーズにするためアニメーションオフ
+            content.style.transition = 'none';
           } else {
             isDragging = false;
           }
@@ -506,28 +632,23 @@
           if (!isDragging) return;
           currentY = e.touches[0].clientY;
           const deltaY = currentY - startY;
-
-          // 下方向に引っ張ったときだけシートを指の動きに追従させて下げる
           if (deltaY > 0) {
             content.style.transform = `translateY(${deltaY}px)`;
           }
         }, { passive: true });
 
-        content.addEventListener('touchend', e => {
+        content.addEventListener('touchend', () => {
           if (!isDragging) return;
           isDragging = false;
           content.style.transition = 'transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1)';
-
           const deltaY = currentY - startY;
-          // 70px以上下にスワイプして離したら画面外に滑らせて閉じる
           if (deltaY > 70) {
             content.style.transform = 'translateY(100%)';
             setTimeout(() => {
               modal.style.display = 'none';
-              content.style.transform = ''; // 次回開いた時のために位置をリセット
+              content.style.transform = '';
             }, 250);
           } else {
-            // 70px未満で手を離したら元の位置へフワッと戻す
             content.style.transform = 'translateY(0)';
           }
           startY = 0;
@@ -536,7 +657,6 @@
       });
     }
 
-    // モーダル背景タップで閉じる
     function handleModalClick(e, modalId) {
       if (e.target.id === modalId) closeModal(modalId);
     }
@@ -568,60 +688,9 @@
       document.getElementById('add-schedule-color').value = scheduleColors[0];
     }
 
-    async function apiCall(action, data = {}, msg = "通信中...") {
-      const url = localStorage.getItem('yozakuraGasUrl');
-      if (!url) return null;
-      document.getElementById('loader-msg').innerText = msg;
-      showLoader();
-      try {
-        const response = await fetch(url, {
-          method: 'POST', headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: action, ...data })
-        });
-        const result = await response.json();
-        hideLoader();
-        if(!result.success && action !== 'getInitialData') alert('エラー: ' + result.error);
-        return result;
-      } catch (error) {
-        hideLoader();
-        alert('通信に失敗しました。\n' + error.message);
-        return null;
-      }
-    }
-
-    function connectGas() {
-      const urlInput = document.getElementById('gas-url-input').value.trim();
-      if (!urlInput.startsWith('https://script.google.com/')) { alert('正しいGASのURLを入力してください。'); return; }
-      localStorage.setItem('yozakuraGasUrl', urlInput);
-      document.getElementById('startup-screen').style.display = 'none';
-      document.getElementById('main-content-area').style.display = 'block';
-      loadData();
-    }
-
-    function disconnectGas() {
-      if(confirm('接続を解除しますか？')){
-        localStorage.removeItem('yozakuraGasUrl'); location.reload();
-      }
-    }
-
-    function showLoader() { document.getElementById('loader').style.display = 'flex'; }
-    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
-
-    async function loadData() {
-      const data = await apiCall('getInitialData', {}, "進捗データを読み込み中...");
-      if (data) {
-        masterTextbooks = data.masterTextbooks || [];
-        schedules = data.schedules || [];
-        isDataLoaded = true;
-        populateTextbookSelect();
-        renderCalendar();
-        renderLibrary();
-      }
-    }
-
     function populateTextbookSelect() {
       const select = document.getElementById('add-textbook-select');
-      select.innerHTML = masterTextbooks.map(tb => `<option value="${tb.id}">${tb.name} (p${tb.startPage}〜p${tb.endPage})</option>`).join('');
+      select.innerHTML = window.masterTextbooks.map(tb => `<option value="${tb.id}">${tb.name} (p${tb.startPage}〜p${tb.endPage})</option>`).join('');
     }
 
     function setupEventListeners() {
@@ -648,30 +717,35 @@
         if(new Date(startDateVal) > new Date(endDateVal)) { alert('終了日は開始日以降の日付にしてください。'); return; }
 
         const payload = {
-          dateStr: startDateVal.replace(/-/g, '/'),
-          endDateStr: endDateVal.replace(/-/g, '/'),
+          date: startDateVal.replace(/-/g, '/'),
+          endDate: endDateVal.replace(/-/g, '/'),
           type: currentAddType,
           color: document.getElementById('add-schedule-color').value,
           memo: document.getElementById('add-schedule-memo').value,
-          startTime: document.getElementById('add-start-time').value,
-          endTime: document.getElementById('add-end-time').value
+          startTime: document.getElementById('add-start-time').value || '',
+          endTime: document.getElementById('add-end-time').value || ''
         };
-        if(currentAddType === 'study') payload.textbookId = document.getElementById('add-textbook-select').value;
-        else payload.title = document.getElementById('add-general-title').value || '予定';
-        
-        if(isEditingMode && selectedSchedule) {
-          payload.scheduleId = selectedSchedule.id;
-          const res = await apiCall('updateSchedule', payload, "予定を更新中...");
-          if (res && res.success) { 
-            closeModal('add-modal'); await loadData(); 
-            if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
-          }
+
+        if (currentAddType === 'study') {
+          payload.textbookId = document.getElementById('add-textbook-select').value;
         } else {
-          const res = await apiCall('addSchedule', payload, "予定を追加中...");
-          if (res && res.success) { 
-            closeModal('add-modal'); await loadData(); 
-            if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+          payload.title = document.getElementById('add-general-title').value || '予定';
+        }
+
+        try {
+          if (isEditingMode && selectedSchedule) {
+            await window.FirebaseBridge.updateSchedule(selectedSchedule.id, payload);
+          } else {
+            if (currentAddType === 'study') {
+              payload.sessionStart = null;
+              payload.sessionEnd = null;
+              payload.iteration = null;
+            }
+            await window.FirebaseBridge.addSchedule(payload);
           }
+          closeModal('add-modal');
+        } catch (e) {
+          alert('保存に失敗しました: ' + e.message);
         }
       });
 
@@ -683,22 +757,23 @@
         if (isNaN(start) || isNaN(end) || isNaN(iter)) { alert("すべての項目に数値を入力してください。"); return; }
         if (start > end) { alert("開始ページは終了ページより小さくしてください。"); return; }
 
-        const res = await apiCall('updateProgress', {
-          scheduleId: selectedSchedule.id,
-          sessionStart: start, sessionEnd: end, iteration: iter
-        }, "進捗を保存中...");
-        if (res && res.success) { 
-          closeModal('progress-modal'); await loadData();
-          if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+        try {
+          await window.FirebaseBridge.updateSchedule(selectedSchedule.id, {
+            sessionStart: start, sessionEnd: end, iteration: iter
+          });
+          closeModal('progress-modal');
+        } catch (e) {
+          alert('進捗保存に失敗しました: ' + e.message);
         }
       });
 
       document.getElementById('delete-schedule-btn').addEventListener('click', async () => {
         if (!confirm('この予定を削除しますか？')) return;
-        const res = await apiCall('deleteSchedule', { scheduleId: selectedSchedule.id }, "削除中...");
-        if (res && res.success) { 
-          closeModal('progress-modal'); await loadData(); 
-          if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+        try {
+          await window.FirebaseBridge.deleteSchedule(selectedSchedule.id);
+          closeModal('progress-modal');
+        } catch (e) {
+          alert('削除に失敗しました: ' + e.message);
         }
       });
 
@@ -718,16 +793,20 @@
         const items = document.querySelectorAll('.textbook-item');
         const newTextbooks = [];
         items.forEach(item => {
-          const id = item.dataset.id;
           const name = item.querySelector('.tb-name').value;
           const start = parseInt(item.querySelector('.tb-start').value, 10);
           const end = parseInt(item.querySelector('.tb-end').value, 10);
-          if(name && !isNaN(start) && !isNaN(end)) {
-             newTextbooks.push({ id: id, name: name, startPage: start, endPage: end });
+          if (name && !isNaN(start) && !isNaN(end)) {
+            newTextbooks.push({ name: name, startPage: start, endPage: end });
           }
         });
-        const res = await apiCall('saveMasterData', { textbooks: newTextbooks }, "設定を保存中...");
-        if (res && res.success) { closeModal('settings-modal'); loadData(); }
+
+        try {
+          await window.FirebaseBridge.saveMasterData(newTextbooks);
+          closeModal('settings-modal');
+        } catch (e) {
+          alert('教材設定の保存に失敗しました: ' + e.message);
+        }
       });
     }
 
@@ -742,7 +821,7 @@
       calendarContainer.addEventListener('touchend', e => {
         const touchEndX = e.changedTouches[0].clientX;
         const touchEndY = e.changedTouches[0].clientY;
-        if(isAnimating) return;
+        if (isAnimating) return;
         
         const deltaX = touchStartX - touchEndX;
         const deltaY = touchStartY - touchEndY;
@@ -806,10 +885,9 @@
         if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) div.classList.add('today');
 
         div.innerHTML = `<div class="day-number-wrapper"><div class="day-number">${day}</div></div>`;
-        
         div.addEventListener('click', (e) => { if (!e.target.classList.contains('task-bar')) openDailyModal(dateStr); });
 
-        schedules.filter(s => isDateInRange(dateStr, s.date, s.endDate)).forEach(task => {
+        window.schedules.filter(s => isDateInRange(dateStr, s.date, s.endDate)).forEach(task => {
           const bar = document.createElement('div');
           bar.className = 'task-bar';
           
@@ -823,8 +901,9 @@
             bar.innerText = task.title;
             bar.style.backgroundColor = task.color || '#de9610';
           } else {
-            let label = task.textbookName;
-            if(task.sessionStart && task.sessionEnd) label += `(p${task.sessionStart}~${task.sessionEnd})`;
+            const tb = window.masterTextbooks.find(t => String(t.id) === String(task.textbookId));
+            let label = tb ? tb.name : '教材';
+            if (task.sessionStart && task.sessionEnd) label += `(p${task.sessionStart}~${task.sessionEnd})`;
             bar.innerText = label;
             bar.style.borderLeftColor = task.color || '#de9610';
           }
@@ -846,14 +925,13 @@
     function renderLibrary() {
       const container = document.getElementById('library-cards-container');
       container.innerHTML = '';
-      if (!isDataLoaded) return;
-      if (masterTextbooks.length === 0) {
+      if (window.masterTextbooks.length === 0) {
         container.innerHTML = `<p style="color: var(--text-sub); font-size: 0.85rem; text-align: center; padding: 20px;">教材が登録されていません。右上の歯車アイコンから登録してください。</p>`;
         return;
       }
 
-      masterTextbooks.forEach(tb => {
-        const tbSchedules = schedules.filter(s => s.type === 'study' && String(s.textbookId) === String(tb.id));
+      window.masterTextbooks.forEach(tb => {
+        const tbSchedules = window.schedules.filter(s => s.type === 'study' && String(s.textbookId) === String(tb.id));
         const totalPages = tb.endPage - tb.startPage + 1;
         const pageStatus = new Array(totalPages).fill(0); 
 
@@ -879,9 +957,9 @@
             if (i === totalPages || pageStatus[i] !== currentIter) {
               const widthPct = (currentCount / totalPages) * 100;
               let bg = 'transparent';
-              if(currentIter === 1) bg = 'var(--iter1-color)';
-              else if(currentIter === 2) bg = 'var(--iter2-color)';
-              else if(currentIter >= 3) bg = 'var(--iter3-color)';
+              if (currentIter === 1) bg = 'var(--iter1-color)';
+              else if (currentIter === 2) bg = 'var(--iter2-color)';
+              else if (currentIter >= 3) bg = 'var(--iter3-color)';
               
               segmentsHtml += `<div class="library-progress-segment" style="width: ${widthPct}%; background: ${bg};"></div>`;
               if (i < totalPages) { currentIter = pageStatus[i]; currentCount = 1; }
@@ -914,11 +992,11 @@
       const listContainer = document.getElementById('daily-schedule-list');
       listContainer.innerHTML = '';
       
-      const dayTasks = schedules.filter(s => isDateInRange(dateStr, s.date, s.endDate));
+      const dayTasks = window.schedules.filter(s => isDateInRange(dateStr, s.date, s.endDate));
       dayTasks.sort((a, b) => {
-        if(!a.startTime && !b.startTime) return 0;
-        if(!a.startTime) return -1;
-        if(!b.startTime) return 1;
+        if (!a.startTime && !b.startTime) return 0;
+        if (!a.startTime) return -1;
+        if (!b.startTime) return 1;
         return a.startTime.localeCompare(b.startTime);
       });
 
@@ -933,14 +1011,21 @@
           if (task.startTime && task.endTime) timeLabel = `${task.startTime}〜${task.endTime}`;
           else if (task.startTime) timeLabel = `${task.startTime}〜`;
           
-          let titleLabel = task.type === 'general' ? task.title : task.textbookName;
-          let subLabel = "";
-          if(task.date !== (task.endDate || task.date)) subLabel += `期間: ${task.date}〜${task.endDate} `;
-          if(task.type === 'study') {
-            if(task.sessionStart && task.sessionEnd) subLabel += `p${task.sessionStart}~${task.sessionEnd} `;
-            if(task.iteration) subLabel += `[${task.iteration}周目]`;
+          let titleLabel = "";
+          if (task.type === 'general') {
+            titleLabel = task.title;
+          } else {
+            const tb = window.masterTextbooks.find(t => String(t.id) === String(task.textbookId));
+            titleLabel = tb ? tb.name : '教材';
           }
-          if(task.memo) subLabel += ` 📝${task.memo}`;
+
+          let subLabel = "";
+          if (task.date !== (task.endDate || task.date)) subLabel += `期間: ${task.date}〜${task.endDate} `;
+          if (task.type === 'study') {
+            if (task.sessionStart && task.sessionEnd) subLabel += `p${task.sessionStart}~${task.sessionEnd} `;
+            if (task.iteration) subLabel += `[${task.iteration}周目]`;
+          }
+          if (task.memo) subLabel += ` 📝${task.memo}`;
 
           card.innerHTML = `
             <div class="daily-card-left">
@@ -962,11 +1047,11 @@
     }
 
     function openEditFromDaily(scheduleId) {
-      const task = schedules.find(s => s.id === scheduleId);
-      if(task) openEditModal(task);
+      const task = window.schedules.find(s => s.id === scheduleId);
+      if (task) openEditModal(task);
     }
     function openEditFromProgress() {
-      if(selectedSchedule) {
+      if (selectedSchedule) {
         closeModal('progress-modal');
         openEditModal(selectedSchedule);
       }
@@ -1023,11 +1108,11 @@
       document.getElementById('add-schedule-color').value = color;
       document.querySelectorAll('.schedule-swatch').forEach(s => {
         s.classList.remove('selected');
-        if(s.style.backgroundColor === color || rgbToHex(s.style.backgroundColor) === color) s.classList.add('selected');
+        if (s.style.backgroundColor === color || rgbToHex(s.style.backgroundColor) === color) s.classList.add('selected');
       });
 
       switchAddTab(task.type);
-      if(task.type === 'general') {
+      if (task.type === 'general') {
         document.getElementById('add-general-title').value = task.title;
       } else {
         document.getElementById('add-textbook-select').value = task.textbookId;
@@ -1047,9 +1132,9 @@
       document.getElementById('progress-modal').style.display = 'flex';
       
       let timeTxt = "";
-      if(task.date !== (task.endDate || task.date)) timeTxt += `期間: ${task.date}〜${task.endDate} `;
-      if(task.startTime && task.endTime) timeTxt += `⏰ ${task.startTime}〜${task.endTime}`;
-      else if(task.startTime) timeTxt += `⏰ ${task.startTime}〜`;
+      if (task.date !== (task.endDate || task.date)) timeTxt += `期間: ${task.date}〜${task.endDate} `;
+      if (task.startTime && task.endTime) timeTxt += `⏰ ${task.startTime}〜${task.endTime}`;
+      else if (task.startTime) timeTxt += `⏰ ${task.startTime}〜`;
       document.getElementById('progress-time-display').innerText = timeTxt;
 
       const memoContainer = document.getElementById('progress-memo-container');
@@ -1061,10 +1146,11 @@
         document.getElementById('progress-fields').style.display = 'none'; 
         document.getElementById('save-progress-btn').style.display = 'none'; 
       } else {
-        document.getElementById('progress-title').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> ${task.textbookName}`;
+        const tb = window.masterTextbooks.find(t => String(t.id) === String(task.textbookId));
+        document.getElementById('progress-title').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> ${tb ? tb.name : '教材'}`;
         document.getElementById('progress-fields').style.display = 'block';
         document.getElementById('save-progress-btn').style.display = 'block';
-        document.getElementById('progress-range-label').innerText = `全体範囲: p${task.startPage} 〜 p${task.endPage}`;
+        document.getElementById('progress-range-label').innerText = `全体範囲: p${tb ? tb.startPage : 0} 〜 p${tb ? tb.endPage : 100}`;
         
         document.getElementById('progress-session-start').value = task.sessionStart || '';
         document.getElementById('progress-session-end').value = task.sessionEnd || '';
@@ -1075,7 +1161,7 @@
     function openSettingsModal() {
       const container = document.getElementById('settings-textbook-list');
       container.innerHTML = '';
-      masterTextbooks.forEach(tb => renderTextbookRow(tb.id, tb.name, tb.startPage, tb.endPage));
+      window.masterTextbooks.forEach(tb => renderTextbookRow(tb.id, tb.name, tb.startPage, tb.endPage));
       
       const root = getComputedStyle(document.documentElement);
       document.getElementById('setting-bg-color').value = root.getPropertyValue('--bg-dark').trim() || '#0d0015';
@@ -1085,13 +1171,12 @@
       document.getElementById('setting-iter2-color').value = root.getPropertyValue('--iter2-color').trim() || '#a0c238';
       document.getElementById('setting-iter3-color').value = root.getPropertyValue('--iter3-color').trim() || '#d16b16';
       
-      document.getElementById('settings-gas-url').value = localStorage.getItem('yozakuraGasUrl') || '';
       document.getElementById('settings-modal').style.display = 'flex';
     }
 
     function renderTextbookRow(id, name, start, end) {
       const container = document.getElementById('settings-textbook-list');
-      const div = document.createElement('div'); div.className = 'textbook-item'; div.dataset.id = id;
+      const div = document.createElement('div'); div.className = 'textbook-item'; div.dataset.id = id || '';
       div.innerHTML = `
         <input type="text" class="tb-name" value="${name}" placeholder="教材名" style="padding:8px;">
         <input type="number" class="tb-start" value="${start}" placeholder="開始" style="padding:8px;">
@@ -1102,13 +1187,12 @@
 
     function addTextbookRow() { renderTextbookRow('', '', 0, 100); }
 
-    // モーダルを閉じる時にスタイル（transform）を綺麗にリセットする
     function closeModal(id) { 
       const modal = document.getElementById(id);
-      if(modal) {
+      if (modal) {
         modal.style.display = 'none';
         const content = modal.querySelector('.modal-content');
-        if(content) content.style.transform = '';
+        if (content) content.style.transform = '';
       }
     }
   </script>
