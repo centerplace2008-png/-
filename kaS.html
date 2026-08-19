@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>夜桜テスト管理カレンダー Pro Mobile</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #0d0015; 
+      --text-main: #fef4f4; 
+      --bg-panel: rgba(25, 25, 35, 0.75);
+      --bg-cell: rgba(30, 30, 45, 0.4);
+      --text-sub: #a0a0a0;
+      --yozakura-pink: #ff9ebd;
+      --yozakura-purple: #c77dff; 
+      --border-color: rgba(255, 255, 255, 0.12);
+      --danger-color: #ff4d4d;
+      --general-color: #e6b422; 
+      --iter1-color: #65ace4; 
+      --iter2-color: #a0c238; 
+      --iter3-color: #d16b16; 
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      padding: 10px;
+      padding-bottom: 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header { 
+      width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; 
+      margin-bottom: 12px; padding: 5px 5px; 
+    }
+    header h1 { 
+      color: var(--yozakura-pink); font-size: 1.4rem; text-shadow: 0 0 10px rgba(255, 158, 189, 0.6); 
+      font-weight: bold; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
+    }
+    
+    .header-actions { display: flex; align-items: center; gap: 15px; }
+    .settings-icon { color: var(--text-sub); font-size: 1.4rem; cursor: pointer; transition: all 0.3s ease; padding: 5px; }
+    .settings-icon:active { color: var(--yozakura-purple); transform: rotate(90deg) scale(1.1); }
+
+    .main-container { width: 100%; max-width: 600px; display: none; }
+
+    /* --- カレンダー全体パネル --- */
+    .calendar-container {
+      background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7); overflow: hidden; margin-bottom: 25px; backdrop-filter: blur(12px);
+      touch-action: pan-y;
+    }
+
+    .calendar-header { 
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; 
+      border-bottom: 1px solid var(--border-color); 
+    }
+    .calendar-header h2 { font-size: 1.15rem; color: var(--yozakura-purple); font-weight: bold; }
+    .nav-controls { display: flex; gap: 6px; }
+
+    .btn { 
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); 
+      padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; display: inline-flex; 
+      align-items: center; gap: 5px; transition: background-color 0.2s, transform 0.1s; 
+    }
+    .btn:active { transform: scale(0.95); background-color: rgba(255,255,255,0.15); }
+    .btn-primary { background: linear-gradient(135deg, var(--yozakura-purple), var(--yozakura-pink)); color: #fff; border: none; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    .btn-danger { background: transparent; border-color: var(--danger-color); color: var(--danger-color); }
+    .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+
+    .weekdays-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; border-bottom: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-sub); padding: 8px 0; background: rgba(0,0,0,0.2); }
+    .weekdays-grid div:nth-child(1) { color: #ff7575; }
+    .weekdays-grid div:nth-child(7) { color: #75b3ff; }
+    
+    .days-grid { 
+      display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(75px, auto); 
+      will-change: transform, opacity, filter;
+    }
+
+    @keyframes fadeSlideOutLeft { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-30px); } }
+    @keyframes fadeSlideOutRight { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(30px); } }
+    @keyframes fadeSlideInRight { 0% { opacity: 0; transform: translateX(30px); } 100% { opacity: 1; transform: translateX(0); } }
+    @keyframes fadeSlideInLeft { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
+
+    .day-cell { 
+      border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 3px; 
+      background-color: var(--bg-cell); cursor: pointer; display: flex; flex-direction: column; 
+      position: relative; min-height: 75px; overflow: hidden;
+    }
+    .day-cell:nth-child(7n) { border-right: none; }
+    .day-cell:active { background-color: rgba(255, 158, 189, 0.15); }
+    .day-cell.other-month { opacity: 0.25; pointer-events: none; }
+
+    .day-number-wrapper { text-align: center; margin-bottom: 3px; flex-shrink: 0; }
+    .day-number { font-size: 0.8rem; color: var(--text-sub); display: inline-block; }
+    .today .day-number { 
+      color: #fff; font-weight: bold; background: linear-gradient(135deg, var(--yozakura-purple), var(--yozakura-pink)); 
+      border-radius: 50%; width: 22px; height: 22px; line-height: 22px; text-align: center; 
+      box-shadow: 0 0 8px rgba(255, 158, 189, 0.8);
+    }
+
+    .task-bar { 
+      font-size: 0.65rem; padding: 2px 4px; margin-bottom: 2px; border-radius: 3px; color: #fff; 
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+      border-left: 2px solid transparent; background-color: rgba(50, 50, 70, 0.85);
+      flex-shrink: 0; width: 100%; box-sizing: border-box; line-height: 1.2; font-weight: 500;
+    }
+    .task-bar.general { color: #fff; text-shadow: 0 0 2px rgba(0,0,0,0.8); border-left: none; }
+    .task-bar.cont-left { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -4px; width: calc(100% + 4px); border-left: none !important; }
+    .task-bar.cont-right { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -4px; width: calc(100% + 4px); }
+    .task-bar.cont-left.cont-right { width: calc(100% + 8px); }
+
+    /* --- 教材ライブラリ進捗 --- */
+    .library-section { 
+      background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 16px; 
+      padding: 18px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7); backdrop-filter: blur(12px); 
+    }
+    .library-section h3 { 
+      color: var(--yozakura-pink); font-size: 1.1rem; margin-bottom: 15px; display: flex; 
+      flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; 
+    }
+    .library-legend { display: flex; gap: 12px; font-size: 0.75rem; color: var(--text-sub); flex-wrap: wrap; }
+    .library-legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-color { width: 10px; height: 10px; border-radius: 2px; }
+
+    .library-grid { display: flex; flex-direction: column; gap: 12px; }
+    .library-card { 
+      background: var(--bg-cell); border: 1px solid var(--border-color); border-radius: 10px; 
+      padding: 14px; border-left: 4px solid var(--yozakura-purple); 
+    }
+    .library-card-title { font-size: 1rem; font-weight: bold; margin-bottom: 6px; color: #fff; }
+    .library-card-info { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .library-progress-wrapper { width: 100%; background: rgba(0,0,0,0.5); height: 10px; border-radius: 5px; overflow: hidden; display: flex; margin-bottom: 4px; }
+    .library-progress-segment { height: 100%; transition: width 0.5s ease; }
+    .library-card-percent { text-align: right; font-size: 0.8rem; font-weight: bold; }
+
+    /* --- フローティングアクションボタン (FAB) --- */
+    .fab-btn {
+      position: fixed; right: 20px; bottom: 20px; width: 56px; height: 56px; border-radius: 28px;
+      background: linear-gradient(135deg, var(--yozakura-purple), var(--yozakura-pink));
+      color: #fff; font-size: 1.6rem; display: flex; justify-content: center; align-items: center;
+      box-shadow: 0 4px 20px rgba(199, 125, 255, 0.6); z-index: 900; cursor: pointer;
+      border: none; transition: transform 0.2s;
+    }
+    .fab-btn:active { transform: scale(0.9) rotate(90deg); }
+
+    /* --- スマホ特化：ボトムシート（下スワイプで閉じる機能対応） --- */
+    .modal, .fullscreen-overlay { 
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background-color: rgba(0, 0, 0, 0.75); z-index: 1000; backdrop-filter: blur(5px);
+      align-items: flex-end; 
+      justify-content: center;
+    }
+    .fullscreen-overlay { align-items: center; }
+
+    .modal-content { 
+      background: linear-gradient(180deg, #1b1326 0%, var(--bg-dark) 100%); 
+      border-top: 1px solid rgba(255, 158, 189, 0.3); border-radius: 20px 20px 0 0; 
+      padding: 20px 18px 30px 18px; width: 100%; max-width: 600px; max-height: 85vh; 
+      overflow-y: auto; box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      will-change: transform;
+    }
+    @keyframes slideUp { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
+
+    /* ボトムシートの取っ手 */
+    .sheet-handle { 
+      width: 44px; height: 5px; background: rgba(255,255,255,0.25); border-radius: 3px; 
+      margin: 0 auto 15px auto; cursor: grab; 
+    }
+
+    .modal h3 { 
+      margin-bottom: 15px; color: var(--yozakura-pink); font-size: 1.15rem; display: flex; 
+      align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;
+    }
+    
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--text-sub); margin-bottom: 5px; }
+    .form-group select, .form-group input[type="text"], .form-group input[type="number"], .form-group input[type="date"], .form-group input[type="time"], .form-group textarea { 
+      width: 100%; background-color: rgba(0,0,0,0.4); border: 1px solid var(--border-color); 
+      color: var(--text-main); padding: 12px; border-radius: 10px; font-size: 0.95rem; font-family: inherit; 
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--yozakura-pink); background: rgba(0,0,0,0.6); }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .form-group input[type="color"] { width: 100%; height: 45px; border: 1px solid var(--border-color); background-color: rgba(0,0,0,0.4); border-radius: 10px; cursor: pointer; padding: 2px; }
+
+    .date-range-row { display: flex; gap: 8px; align-items: center; }
+    .date-range-row > div { flex: 1; }
+
+    .schedule-color-palette { display: flex; gap: 10px; flex-wrap: wrap; margin: 5px 0; justify-content: space-between; }
+    .schedule-swatch { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+    .schedule-swatch.selected { transform: scale(1.2); border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.8); }
+
+    .tabs { display: flex; margin-bottom: 15px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); }
+    .tab-btn { flex: 1; padding: 10px; text-align: center; background: transparent; color: var(--text-sub); cursor: pointer; border: none; font-size: 0.9rem; transition: 0.2s; }
+    .tab-btn.active { background: var(--yozakura-purple); color: #fff; font-weight: bold; }
+
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .modal-actions.between { justify-content: space-between; }
+
+    /* --- 1日タイムライン --- */
+    .daily-schedule-list { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; margin-bottom: 15px; padding-right: 2px; }
+    .daily-card {
+      background: rgba(40, 40, 60, 0.6); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background 0.2s;
+    }
+    .daily-card:active { background: rgba(60, 60, 85, 0.8); }
+    .daily-card-left { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
+    .daily-card-bar { width: 5px; height: 42px; border-radius: 3px; flex-shrink: 0; }
+    .daily-card-time { font-size: 0.75rem; color: var(--yozakura-pink); font-weight: bold; min-width: 75px; flex-shrink: 0; }
+    .daily-card-title { font-size: 0.95rem; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .daily-card-sub { font-size: 0.75rem; color: var(--text-sub); margin-top: 3px; }
+
+    /* --- ローディング・スタートアップ --- */
+    #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(7, 2, 12, 0.9); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(12px); }
+    .spinner-rings { position: relative; width: 80px; height: 80px; margin-bottom: 20px; }
+    .spinner-rings div { position: absolute; width: 100%; height: 100%; border: 4px solid transparent; border-top-color: var(--yozakura-pink); border-radius: 50%; animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+    .spinner-rings div:nth-child(1) { animation-delay: -0.45s; border-top-color: var(--yozakura-purple); }
+    .spinner-rings div:nth-child(2) { animation-delay: -0.3s; width: 80%; height: 80%; top: 10%; left: 10%; border-top-color: #fff; }
+    .spinner-rings div:nth-child(3) { animation-delay: -0.15s; width: 60%; height: 60%; top: 20%; left: 20%; border-top-color: var(--general-color); }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .loader-text { color: #fff; font-size: 1rem; letter-spacing: 2px; font-weight: 300; text-shadow: 0 0 8px var(--yozakura-pink); }
+    .loader-bar-bg { width: 180px; height: 2px; background: rgba(255,255,255,0.1); margin-top: 15px; border-radius: 2px; overflow: hidden; }
+    .loader-bar-fill { height: 100%; width: 30%; background: linear-gradient(90deg, var(--yozakura-purple), var(--yozakura-pink)); animation: loading-flow 2s infinite linear; }
+    @keyframes loading-flow { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+
+    #startup-screen { display: flex; z-index: 3000; }
+    .startup-box { background: var(--bg-dark); border-radius: 16px; text-align: center; padding: 30px 20px; width: 90%; max-width: 400px; border: 1px solid var(--yozakura-purple); }
+    .textbook-item { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 5px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- フローティングアクションボタン (FAB) -->
+  <button class="fab-btn" onclick="openAddModalFromFab()" title="新規予定を追加">
+    <i class="fa-solid fa-plus"></i>
+  </button>
+
+  <div class="fullscreen-overlay" id="startup-screen">
+    <div class="startup-box">
+      <h2 style="color:var(--yozakura-pink); margin-bottom:10px; font-size:1.3rem;"><i class="fa-solid fa-link"></i> データベース接続</h2>
+      <p style="color:var(--text-sub); margin-bottom:20px; font-size:0.85rem;">発行したWebアプリ(GAS)のURLを入力してください。</p>
+      <input type="url" id="gas-url-input" placeholder="https://script.google.com/.../exec" style="width:100%; padding:12px; margin-bottom:20px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid #c77dff; border-radius:8px;">
+      <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="connectGas()">接続を開始する</button>
+    </div>
+  </div>
+
+  <div id="loader">
+    <div class="spinner-rings"><div></div><div></div><div></div></div>
+    <div class="loader-text" id="loader-msg">読み込み中...</div>
+    <div class="loader-bar-bg"><div class="loader-bar-fill"></div></div>
+  </div>
+
+  <header>
+    <h1><i class="fa-solid fa-moon"></i> 夜桜カレンダー Pro</h1>
+    <div class="header-actions">
+      <i class="fa-solid fa-gear settings-icon" onclick="openSettingsModal()" title="設定"></i>
+    </div>
+  </header>
+
+  <div class="main-container" id="main-content-area">
+    <div class="calendar-container" id="main-calendar">
+      <div class="calendar-header">
+        <button class="btn btn-sm" id="prev-month"><i class="fa-solid fa-chevron-left"></i></button>
+        <h2 id="calendar-title"></h2>
+        <div class="nav-controls">
+          <button class="btn btn-sm" id="today-btn">今日</button>
+          <button class="btn btn-sm" id="next-month"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="weekdays-grid"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+      <div class="days-grid" id="calendar-days"></div>
+    </div>
+
+    <div class="library-section">
+      <h3>
+        <div><i class="fa-solid fa-book-bookmark"></i> 教材進捗ライブラリ</div>
+        <div class="library-legend">
+          <div class="library-legend-item"><div class="legend-color" style="background:var(--iter1-color);"></div>1周目</div>
+          <div class="library-legend-item"><div class="legend-color" style="background:var(--iter2-color);"></div>2周目</div>
+          <div class="library-legend-item"><div class="legend-color" style="background:var(--iter3-color);"></div>3周目+</div>
+        </div>
+      </h3>
+      <div class="library-grid" id="library-cards-container"></div>
+    </div>
+  </div>
+
+  <!-- 1日のスケジュール確認 (デイリータイムライン・ボトムシート) -->
+  <div class="modal" id="daily-modal" onclick="handleModalClick(event, 'daily-modal')">
+    <div class="modal-content">
+      <div class="sheet-handle"></div>
+      <h3>
+        <span id="daily-modal-title"><i class="fa-solid fa-calendar-day"></i> スケジュール</span>
+        <button class="btn btn-sm" onclick="closeModal('daily-modal')"><i class="fa-solid fa-xmark"></i></button>
+      </h3>
+      <div class="daily-schedule-list" id="daily-schedule-list"></div>
+      <div class="modal-actions between">
+        <button class="btn" onclick="closeModal('daily-modal')">閉じる</button>
+        <button class="btn btn-primary" id="open-add-from-daily"><i class="fa-solid fa-plus"></i> 新規予定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 予定追加・編集 モーダル -->
+  <div class="modal" id="add-modal" onclick="handleModalClick(event, 'add-modal')">
+    <div class="modal-content">
+      <div class="sheet-handle"></div>
+      <h3 id="add-modal-heading"><i class="fa-solid fa-calendar-plus"></i> 予定を追加</h3>
+      
+      <div class="tabs" id="add-modal-tabs">
+        <button class="tab-btn active" id="tab-study" onclick="switchAddTab('study')">勉強予定</button>
+        <button class="tab-btn" id="tab-general" onclick="switchAddTab('general')">日常予定</button>
+      </div>
+
+      <div class="form-group">
+        <label>期間（開始日 〜 終了日）</label>
+        <div class="date-range-row">
+          <div><input type="date" id="add-start-date"></div>
+          <span style="color:var(--text-sub);">〜</span>
+          <div><input type="date" id="add-end-date"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>時間指定（任意）</label>
+        <div class="date-range-row">
+          <div><input type="time" id="add-start-time"></div>
+          <span style="color:var(--text-sub);">〜</span>
+          <div><input type="time" id="add-end-time"></div>
+        </div>
+      </div>
+
+      <div id="area-study">
+        <div class="form-group">
+          <label>対象教材</label>
+          <select id="add-textbook-select"></select>
+        </div>
+      </div>
+
+      <div id="area-general" style="display:none;">
+        <div class="form-group">
+          <label>予定のタイトル</label>
+          <input type="text" id="add-general-title" placeholder="例: 模試、部活、イベント">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>予定バーの色</label>
+        <div class="schedule-color-palette" id="schedule-color-palette"></div>
+        <input type="hidden" id="add-schedule-color" value="#de9610">
+      </div>
+
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea id="add-schedule-memo" rows="2" placeholder="予定に関するメモ書き..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('add-modal')">キャンセル</button>
+        <button class="btn btn-primary" id="save-schedule-btn" style="padding: 10px 24px;">保存する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 進捗・詳細 モーダル -->
+  <div class="modal" id="progress-modal" onclick="handleModalClick(event, 'progress-modal')">
+    <div class="modal-content">
+      <div class="sheet-handle"></div>
+      <h3>
+        <span id="progress-title"><i class="fa-solid fa-pen-to-square"></i> 詳細</span>
+        <button class="btn btn-sm" onclick="openEditFromProgress()"><i class="fa-solid fa-pen"></i> 編集</button>
+      </h3>
+      
+      <div id="progress-time-display" style="font-size:0.85rem; color:var(--yozakura-pink); font-weight:bold; margin-bottom:12px;"></div>
+      <div id="progress-memo-container" style="display: none; margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.3); border-left: 4px solid var(--yozakura-pink); border-radius: 6px; font-size: 0.9rem; white-space: pre-wrap; line-height: 1.4; color: var(--text-main);"></div>
+
+      <div id="progress-fields">
+        <div class="form-group"><label id="progress-range-label" style="color:var(--yozakura-pink); font-weight:bold;">教材全体範囲: p0 ~ p0</label></div>
+        
+        <div class="form-group">
+          <label>今回やった範囲 (開始〜終了ページ)</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="number" id="progress-session-start" placeholder="開始" min="0">
+            <span style="color: var(--text-sub);">〜</span>
+            <input type="number" id="progress-session-end" placeholder="終了" min="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>周回数</label>
+          <input type="number" id="progress-iteration" min="1" value="1">
+        </div>
+      </div>
+
+      <div class="modal-actions between">
+        <button class="btn btn-danger" id="delete-schedule-btn"><i class="fa-solid fa-trash"></i> 削除</button>
+        <div id="progress-save-actions" style="display:flex; gap:10px;">
+          <button class="btn" onclick="closeModal('progress-modal')">キャンセル</button>
+          <button class="btn btn-primary" id="save-progress-btn" style="padding: 10px 20px;">進捗保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- システム設定 モーダル -->
+  <div class="modal" id="settings-modal" onclick="handleModalClick(event, 'settings-modal')">
+    <div class="modal-content">
+      <div class="sheet-handle"></div>
+      <h3><i class="fa-solid fa-gear"></i> システム設定</h3>
+      
+      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-book"></i> 教材マスタ管理</h4>
+      <div id="settings-textbook-list" style="max-height:220px; overflow-y:auto; padding-right:5px; margin-bottom:10px;"></div>
+      <button class="btn" onclick="addTextbookRow()" style="width:100%; justify-content:center; margin-bottom:20px;"><i class="fa-solid fa-plus"></i> 教材を追加</button>
+
+      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-palette"></i> 色彩設定</h4>
+      <div class="date-range-row" style="margin-bottom:10px;">
+        <div><label style="font-size:0.75rem;">背景</label><input type="color" id="setting-bg-color"></div>
+        <div><label style="font-size:0.75rem;">文字</label><input type="color" id="setting-text-color"></div>
+        <div><label style="font-size:0.75rem;">アクセント</label><input type="color" id="setting-accent-color"></div>
+      </div>
+
+      <h4 style="color:var(--yozakura-purple); margin:15px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-layer-group"></i> 周回数カラー</h4>
+      <div class="date-range-row" style="margin-bottom:20px;">
+        <div><label style="font-size:0.75rem;">1周目</label><input type="color" id="setting-iter1-color"></div>
+        <div><label style="font-size:0.75rem;">2周目</label><input type="color" id="setting-iter2-color"></div>
+        <div><label style="font-size:0.75rem;">3周目+</label><input type="color" id="setting-iter3-color"></div>
+      </div>
+
+      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-database"></i> データベース接続URL</h4>
+      <div class="form-group">
+        <input type="text" id="settings-gas-url" readonly style="font-size:0.7rem; color:var(--text-sub); margin-bottom:8px;">
+        <button class="btn btn-danger" onclick="disconnectGas()" style="width:100%; justify-content:center;">接続を解除</button>
+      </div>
+
+      <div class="modal-actions" style="border-top: 1px solid var(--border-color); padding-top:15px; margin-top:15px;">
+        <button class="btn" onclick="closeModal('settings-modal')">キャンセル</button>
+        <button class="btn btn-primary" id="save-settings-btn" style="padding: 10px 30px; font-size:1rem;">すべて保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentDate = new Date();
+    let masterTextbooks = [];
+    let schedules = [];
+    let selectedSchedule = null;
+    let currentAddType = 'study';
+    let isDataLoaded = false;
+    let isAnimating = false;
+    let isEditingMode = false;
+    let activeDailyDateStr = "";
+
+    const scheduleColors = [
+      '#de9610', '#c93a40', '#fff001', '#d06d8c',
+      '#65ace4', '#a0c238', '#56a764', '#d16b16',
+      '#cc528b', '#9460a0', '#f2cf01', '#0074bf'
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      applySavedColors();
+      buildScheduleColorPalette();
+      
+      const savedUrl = localStorage.getItem('yozakuraGasUrl');
+      if (!savedUrl) {
+        document.getElementById('startup-screen').style.display = 'flex';
+      } else {
+        document.getElementById('startup-screen').style.display = 'none';
+        document.getElementById('main-content-area').style.display = 'block';
+        loadData(); 
+      }
+      setupEventListeners();
+      setupSwipeEvents();
+      setupSheetSwipeEvents(); // ボトムシートの下スワイプで閉じる機能を開始！
+    });
+
+    // --- 【新規実装】ボトムシートを下にスワイプして閉じる機能 ---
+    function setupSheetSwipeEvents() {
+      const modals = document.querySelectorAll('.modal');
+      modals.forEach(modal => {
+        const content = modal.querySelector('.modal-content');
+        if (!content) return;
+
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+
+        content.addEventListener('touchstart', e => {
+          // シート内のスクロール位置が一番上のときだけスワイプでのクローズを許可
+          if (content.scrollTop <= 0) {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            content.style.transition = 'none'; // 指への追従をスムーズにするためアニメーションオフ
+          } else {
+            isDragging = false;
+          }
+        }, { passive: true });
+
+        content.addEventListener('touchmove', e => {
+          if (!isDragging) return;
+          currentY = e.touches[0].clientY;
+          const deltaY = currentY - startY;
+
+          // 下方向に引っ張ったときだけシートを指の動きに追従させて下げる
+          if (deltaY > 0) {
+            content.style.transform = `translateY(${deltaY}px)`;
+          }
+        }, { passive: true });
+
+        content.addEventListener('touchend', e => {
+          if (!isDragging) return;
+          isDragging = false;
+          content.style.transition = 'transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1)';
+
+          const deltaY = currentY - startY;
+          // 70px以上下にスワイプして離したら画面外に滑らせて閉じる
+          if (deltaY > 70) {
+            content.style.transform = 'translateY(100%)';
+            setTimeout(() => {
+              modal.style.display = 'none';
+              content.style.transform = ''; // 次回開いた時のために位置をリセット
+            }, 250);
+          } else {
+            // 70px未満で手を離したら元の位置へフワッと戻す
+            content.style.transform = 'translateY(0)';
+          }
+          startY = 0;
+          currentY = 0;
+        });
+      });
+    }
+
+    // モーダル背景タップで閉じる
+    function handleModalClick(e, modalId) {
+      if (e.target.id === modalId) closeModal(modalId);
+    }
+
+    function applySavedColors() {
+      const root = document.documentElement;
+      root.style.setProperty('--bg-dark', localStorage.getItem('yozakuraBg') || '#0d0015');
+      root.style.setProperty('--text-main', localStorage.getItem('yozakuraText') || '#fef4f4');
+      root.style.setProperty('--yozakura-purple', localStorage.getItem('yozakuraAccent') || '#c77dff');
+      root.style.setProperty('--iter1-color', localStorage.getItem('yozakuraIter1') || '#65ace4');
+      root.style.setProperty('--iter2-color', localStorage.getItem('yozakuraIter2') || '#a0c238');
+      root.style.setProperty('--iter3-color', localStorage.getItem('yozakuraIter3') || '#d16b16');
+    }
+
+    function buildScheduleColorPalette() {
+      const container = document.getElementById('schedule-color-palette');
+      container.innerHTML = '';
+      scheduleColors.forEach((color, index) => {
+        const swatch = document.createElement('div');
+        swatch.className = 'schedule-swatch' + (index === 0 ? ' selected' : '');
+        swatch.style.backgroundColor = color;
+        swatch.onclick = () => {
+          document.querySelectorAll('.schedule-swatch').forEach(s => s.classList.remove('selected'));
+          swatch.classList.add('selected');
+          document.getElementById('add-schedule-color').value = color;
+        };
+        container.appendChild(swatch);
+      });
+      document.getElementById('add-schedule-color').value = scheduleColors[0];
+    }
+
+    async function apiCall(action, data = {}, msg = "通信中...") {
+      const url = localStorage.getItem('yozakuraGasUrl');
+      if (!url) return null;
+      document.getElementById('loader-msg').innerText = msg;
+      showLoader();
+      try {
+        const response = await fetch(url, {
+          method: 'POST', headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ action: action, ...data })
+        });
+        const result = await response.json();
+        hideLoader();
+        if(!result.success && action !== 'getInitialData') alert('エラー: ' + result.error);
+        return result;
+      } catch (error) {
+        hideLoader();
+        alert('通信に失敗しました。\n' + error.message);
+        return null;
+      }
+    }
+
+    function connectGas() {
+      const urlInput = document.getElementById('gas-url-input').value.trim();
+      if (!urlInput.startsWith('https://script.google.com/')) { alert('正しいGASのURLを入力してください。'); return; }
+      localStorage.setItem('yozakuraGasUrl', urlInput);
+      document.getElementById('startup-screen').style.display = 'none';
+      document.getElementById('main-content-area').style.display = 'block';
+      loadData();
+    }
+
+    function disconnectGas() {
+      if(confirm('接続を解除しますか？')){
+        localStorage.removeItem('yozakuraGasUrl'); location.reload();
+      }
+    }
+
+    function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+
+    async function loadData() {
+      const data = await apiCall('getInitialData', {}, "進捗データを読み込み中...");
+      if (data) {
+        masterTextbooks = data.masterTextbooks || [];
+        schedules = data.schedules || [];
+        isDataLoaded = true;
+        populateTextbookSelect();
+        renderCalendar();
+        renderLibrary();
+      }
+    }
+
+    function populateTextbookSelect() {
+      const select = document.getElementById('add-textbook-select');
+      select.innerHTML = masterTextbooks.map(tb => `<option value="${tb.id}">${tb.name} (p${tb.startPage}〜p${tb.endPage})</option>`).join('');
+    }
+
+    function setupEventListeners() {
+      document.getElementById('prev-month').addEventListener('click', () => changeMonthWithAnimation(-1));
+      document.getElementById('next-month').addEventListener('click', () => changeMonthWithAnimation(1));
+      
+      document.getElementById('today-btn').addEventListener('click', () => { 
+        const today = new Date();
+        if(today.getMonth() !== currentDate.getMonth() || today.getFullYear() !== currentDate.getFullYear()) {
+          const dir = today > currentDate ? 1 : -1;
+          changeMonthWithAnimation(dir, today);
+        }
+      });
+
+      document.getElementById('add-general-title').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('save-schedule-btn').click(); }
+      });
+
+      document.getElementById('save-schedule-btn').addEventListener('click', async () => {
+        const startDateVal = document.getElementById('add-start-date').value;
+        const endDateVal = document.getElementById('add-end-date').value || startDateVal;
+        
+        if(!startDateVal) { alert('開始日を選択してください。'); return; }
+        if(new Date(startDateVal) > new Date(endDateVal)) { alert('終了日は開始日以降の日付にしてください。'); return; }
+
+        const payload = {
+          dateStr: startDateVal.replace(/-/g, '/'),
+          endDateStr: endDateVal.replace(/-/g, '/'),
+          type: currentAddType,
+          color: document.getElementById('add-schedule-color').value,
+          memo: document.getElementById('add-schedule-memo').value,
+          startTime: document.getElementById('add-start-time').value,
+          endTime: document.getElementById('add-end-time').value
+        };
+        if(currentAddType === 'study') payload.textbookId = document.getElementById('add-textbook-select').value;
+        else payload.title = document.getElementById('add-general-title').value || '予定';
+        
+        if(isEditingMode && selectedSchedule) {
+          payload.scheduleId = selectedSchedule.id;
+          const res = await apiCall('updateSchedule', payload, "予定を更新中...");
+          if (res && res.success) { 
+            closeModal('add-modal'); await loadData(); 
+            if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+          }
+        } else {
+          const res = await apiCall('addSchedule', payload, "予定を追加中...");
+          if (res && res.success) { 
+            closeModal('add-modal'); await loadData(); 
+            if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+          }
+        }
+      });
+
+      document.getElementById('save-progress-btn').addEventListener('click', async () => {
+        const start = parseInt(document.getElementById('progress-session-start').value, 10);
+        const end = parseInt(document.getElementById('progress-session-end').value, 10);
+        const iter = parseInt(document.getElementById('progress-iteration').value, 10);
+        
+        if (isNaN(start) || isNaN(end) || isNaN(iter)) { alert("すべての項目に数値を入力してください。"); return; }
+        if (start > end) { alert("開始ページは終了ページより小さくしてください。"); return; }
+
+        const res = await apiCall('updateProgress', {
+          scheduleId: selectedSchedule.id,
+          sessionStart: start, sessionEnd: end, iteration: iter
+        }, "進捗を保存中...");
+        if (res && res.success) { 
+          closeModal('progress-modal'); await loadData();
+          if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+        }
+      });
+
+      document.getElementById('delete-schedule-btn').addEventListener('click', async () => {
+        if (!confirm('この予定を削除しますか？')) return;
+        const res = await apiCall('deleteSchedule', { scheduleId: selectedSchedule.id }, "削除中...");
+        if (res && res.success) { 
+          closeModal('progress-modal'); await loadData(); 
+          if(document.getElementById('daily-modal').style.display === 'flex') openDailyModal(activeDailyDateStr);
+        }
+      });
+
+      document.getElementById('open-add-from-daily').addEventListener('click', () => {
+        openAddModal(activeDailyDateStr);
+      });
+
+      document.getElementById('save-settings-btn').addEventListener('click', async () => {
+        localStorage.setItem('yozakuraBg', document.getElementById('setting-bg-color').value);
+        localStorage.setItem('yozakuraText', document.getElementById('setting-text-color').value);
+        localStorage.setItem('yozakuraAccent', document.getElementById('setting-accent-color').value);
+        localStorage.setItem('yozakuraIter1', document.getElementById('setting-iter1-color').value);
+        localStorage.setItem('yozakuraIter2', document.getElementById('setting-iter2-color').value);
+        localStorage.setItem('yozakuraIter3', document.getElementById('setting-iter3-color').value);
+        applySavedColors();
+
+        const items = document.querySelectorAll('.textbook-item');
+        const newTextbooks = [];
+        items.forEach(item => {
+          const id = item.dataset.id;
+          const name = item.querySelector('.tb-name').value;
+          const start = parseInt(item.querySelector('.tb-start').value, 10);
+          const end = parseInt(item.querySelector('.tb-end').value, 10);
+          if(name && !isNaN(start) && !isNaN(end)) {
+             newTextbooks.push({ id: id, name: name, startPage: start, endPage: end });
+          }
+        });
+        const res = await apiCall('saveMasterData', { textbooks: newTextbooks }, "設定を保存中...");
+        if (res && res.success) { closeModal('settings-modal'); loadData(); }
+      });
+    }
+
+    function setupSwipeEvents() {
+      const calendarContainer = document.getElementById('main-calendar');
+      let touchStartX = 0, touchStartY = 0;
+      calendarContainer.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].clientX;
+        touchStartY = e.changedTouches[0].clientY;
+      }, {passive: true});
+      
+      calendarContainer.addEventListener('touchend', e => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        if(isAnimating) return;
+        
+        const deltaX = touchStartX - touchEndX;
+        const deltaY = touchStartY - touchEndY;
+        
+        if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+          if (deltaX > 0) changeMonthWithAnimation(1);
+          else changeMonthWithAnimation(-1);
+        }
+      }, {passive: true});
+    }
+
+    function changeMonthWithAnimation(direction, targetDate = null) {
+      if (isAnimating) return;
+      isAnimating = true;
+      const daysGrid = document.getElementById('calendar-days');
+      const outAnim = direction > 0 ? 'fadeSlideOutLeft' : 'fadeSlideOutRight';
+      const inAnim = direction > 0 ? 'fadeSlideInRight' : 'fadeSlideInLeft';
+
+      daysGrid.style.animation = `${outAnim} 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards`;
+      setTimeout(() => {
+        if (targetDate) currentDate = new Date(targetDate);
+        else currentDate.setMonth(currentDate.getMonth() + direction);
+        renderCalendar(); 
+        daysGrid.style.animation = `${inAnim} 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards`;
+        setTimeout(() => { daysGrid.style.animation = ''; isAnimating = false; }, 250);
+      }, 250);
+    }
+
+    function parseDate(str) {
+      if(!str) return null;
+      const parts = str.split('/');
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    function isDateInRange(targetStr, startStr, endStr) {
+      const t = parseDate(targetStr);
+      const s = parseDate(startStr);
+      const e = parseDate(endStr || startStr);
+      return t >= s && t <= e;
+    }
+
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      document.getElementById('calendar-title').innerText = `${year}年 ${month + 1}月`;
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const prevLastDay = new Date(year, month, 0).getDate();
+      const grid = document.getElementById('calendar-days');
+      grid.innerHTML = '';
+      const today = new Date();
+      
+      for (let i = firstDayIndex; i > 0; i--) {
+        const div = document.createElement('div'); div.className = 'day-cell other-month';
+        div.innerHTML = `<div class="day-number-wrapper"><div class="day-number">${prevLastDay - i + 1}</div></div>`; grid.appendChild(div);
+      }
+
+      for (let day = 1; day <= lastDay; day++) {
+        const div = document.createElement('div'); div.className = 'day-cell';
+        const dateStr = `${year}/${String(month + 1).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+        if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) div.classList.add('today');
+
+        div.innerHTML = `<div class="day-number-wrapper"><div class="day-number">${day}</div></div>`;
+        
+        div.addEventListener('click', (e) => { if (!e.target.classList.contains('task-bar')) openDailyModal(dateStr); });
+
+        schedules.filter(s => isDateInRange(dateStr, s.date, s.endDate)).forEach(task => {
+          const bar = document.createElement('div');
+          bar.className = 'task-bar';
+          
+          const isStart = (dateStr === task.date);
+          const isEnd = (dateStr === (task.endDate || task.date));
+          if (!isStart) bar.classList.add('cont-left');
+          if (!isEnd) bar.classList.add('cont-right');
+
+          if (task.type === 'general') {
+            bar.classList.add('general');
+            bar.innerText = task.title;
+            bar.style.backgroundColor = task.color || '#de9610';
+          } else {
+            let label = task.textbookName;
+            if(task.sessionStart && task.sessionEnd) label += `(p${task.sessionStart}~${task.sessionEnd})`;
+            bar.innerText = label;
+            bar.style.borderLeftColor = task.color || '#de9610';
+          }
+          
+          bar.addEventListener('click', (e) => { e.stopPropagation(); openProgressModal(task); });
+          div.appendChild(bar);
+        });
+        grid.appendChild(div);
+      }
+
+      const totalCells = firstDayIndex + lastDay;
+      const nextMonthDays = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+      for (let i = 1; i <= nextMonthDays; i++) {
+        const div = document.createElement('div'); div.className = 'day-cell other-month';
+        div.innerHTML = `<div class="day-number-wrapper"><div class="day-number">${i}</div></div>`; grid.appendChild(div);
+      }
+    }
+
+    function renderLibrary() {
+      const container = document.getElementById('library-cards-container');
+      container.innerHTML = '';
+      if (!isDataLoaded) return;
+      if (masterTextbooks.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-sub); font-size: 0.85rem; text-align: center; padding: 20px;">教材が登録されていません。右上の歯車アイコンから登録してください。</p>`;
+        return;
+      }
+
+      masterTextbooks.forEach(tb => {
+        const tbSchedules = schedules.filter(s => s.type === 'study' && String(s.textbookId) === String(tb.id));
+        const totalPages = tb.endPage - tb.startPage + 1;
+        const pageStatus = new Array(totalPages).fill(0); 
+
+        tbSchedules.forEach(s => {
+          if (s.sessionStart && s.sessionEnd && s.iteration) {
+            const startIdx = Math.max(0, s.sessionStart - tb.startPage);
+            const endIdx = Math.min(totalPages - 1, s.sessionEnd - tb.startPage);
+            for (let i = startIdx; i <= endIdx; i++) {
+              pageStatus[i] = Math.max(pageStatus[i], s.iteration);
+            }
+          }
+        });
+
+        let segmentsHtml = '';
+        let completedPages = 0;
+        
+        if (totalPages > 0) {
+          let currentIter = pageStatus[0];
+          let currentCount = 1;
+
+          for (let i = 1; i <= totalPages; i++) {
+            if (pageStatus[i-1] > 0) completedPages++;
+            if (i === totalPages || pageStatus[i] !== currentIter) {
+              const widthPct = (currentCount / totalPages) * 100;
+              let bg = 'transparent';
+              if(currentIter === 1) bg = 'var(--iter1-color)';
+              else if(currentIter === 2) bg = 'var(--iter2-color)';
+              else if(currentIter >= 3) bg = 'var(--iter3-color)';
+              
+              segmentsHtml += `<div class="library-progress-segment" style="width: ${widthPct}%; background: ${bg};"></div>`;
+              if (i < totalPages) { currentIter = pageStatus[i]; currentCount = 1; }
+            } else {
+              currentCount++;
+            }
+          }
+        }
+
+        const coverage = Math.round((completedPages / totalPages) * 100) || 0;
+
+        const card = document.createElement('div');
+        card.className = 'library-card';
+        card.innerHTML = `
+          <div class="library-card-title">${tb.name}</div>
+          <div class="library-card-info">
+            <span>全体: p${tb.startPage}〜p${tb.endPage}</span>
+            <span style="${coverage >= 100 ? 'color: var(--yozakura-pink); font-weight:bold;' : ''}">カバー率: ${coverage}%</span>
+          </div>
+          <div class="library-progress-wrapper">${segmentsHtml}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function openDailyModal(dateStr) {
+      activeDailyDateStr = dateStr;
+      document.getElementById('daily-modal-title').innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${dateStr} の予定`;
+      
+      const listContainer = document.getElementById('daily-schedule-list');
+      listContainer.innerHTML = '';
+      
+      const dayTasks = schedules.filter(s => isDateInRange(dateStr, s.date, s.endDate));
+      dayTasks.sort((a, b) => {
+        if(!a.startTime && !b.startTime) return 0;
+        if(!a.startTime) return -1;
+        if(!b.startTime) return 1;
+        return a.startTime.localeCompare(b.startTime);
+      });
+
+      if (dayTasks.length === 0) {
+        listContainer.innerHTML = `<div style="text-align:center; padding:30px 10px; color:var(--text-sub); font-size:0.85rem;">予定はありません。「＋ 新規予定」から追加できます。</div>`;
+      } else {
+        dayTasks.forEach(task => {
+          const card = document.createElement('div');
+          card.className = 'daily-card';
+          
+          let timeLabel = "終日";
+          if (task.startTime && task.endTime) timeLabel = `${task.startTime}〜${task.endTime}`;
+          else if (task.startTime) timeLabel = `${task.startTime}〜`;
+          
+          let titleLabel = task.type === 'general' ? task.title : task.textbookName;
+          let subLabel = "";
+          if(task.date !== (task.endDate || task.date)) subLabel += `期間: ${task.date}〜${task.endDate} `;
+          if(task.type === 'study') {
+            if(task.sessionStart && task.sessionEnd) subLabel += `p${task.sessionStart}~${task.sessionEnd} `;
+            if(task.iteration) subLabel += `[${task.iteration}周目]`;
+          }
+          if(task.memo) subLabel += ` 📝${task.memo}`;
+
+          card.innerHTML = `
+            <div class="daily-card-left">
+              <div class="daily-card-bar" style="background-color: ${task.color || '#de9610'};"></div>
+              <div style="overflow:hidden;">
+                <div class="daily-card-time">${timeLabel}</div>
+                <div class="daily-card-title">${titleLabel}</div>
+                ${subLabel ? `<div class="daily-card-sub">${subLabel}</div>` : ''}
+              </div>
+            </div>
+            <button class="btn btn-sm" onclick="event.stopPropagation(); openEditFromDaily('${task.id}')" title="編集" style="padding:8px 12px;"><i class="fa-solid fa-pen"></i></button>
+          `;
+          card.addEventListener('click', () => { openProgressModal(task); });
+          listContainer.appendChild(card);
+        });
+      }
+
+      document.getElementById('daily-modal').style.display = 'flex';
+    }
+
+    function openEditFromDaily(scheduleId) {
+      const task = schedules.find(s => s.id === scheduleId);
+      if(task) openEditModal(task);
+    }
+    function openEditFromProgress() {
+      if(selectedSchedule) {
+        closeModal('progress-modal');
+        openEditModal(selectedSchedule);
+      }
+    }
+
+    function switchAddTab(type) {
+      currentAddType = type;
+      document.getElementById('tab-study').classList.remove('active');
+      document.getElementById('tab-general').classList.remove('active');
+      document.getElementById(`tab-${type}`).classList.add('active');
+      document.getElementById('area-study').style.display = type === 'study' ? 'block' : 'none';
+      document.getElementById('area-general').style.display = type === 'general' ? 'block' : 'none';
+    }
+
+    function openAddModalFromFab() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      openAddModal(dateStr);
+    }
+
+    function openAddModal(dateStr) {
+      isEditingMode = false;
+      selectedSchedule = null;
+      document.getElementById('add-modal-heading').innerHTML = `<i class="fa-solid fa-calendar-plus"></i> 新規予定`;
+      document.getElementById('add-modal-tabs').style.display = 'flex';
+      document.getElementById('save-schedule-btn').innerText = '追加する';
+      
+      const formattedDate = dateStr.replace(/\//g, '-');
+      document.getElementById('add-start-date').value = formattedDate;
+      document.getElementById('add-end-date').value = formattedDate;
+      document.getElementById('add-start-time').value = '';
+      document.getElementById('add-end-time').value = '';
+      document.getElementById('add-general-title').value = '';
+      document.getElementById('add-schedule-memo').value = '';
+      
+      switchAddTab('study'); 
+      document.getElementById('add-modal').style.display = 'flex';
+    }
+
+    function openEditModal(task) {
+      isEditingMode = true;
+      selectedSchedule = task;
+      document.getElementById('add-modal-heading').innerHTML = `<i class="fa-solid fa-pen"></i> 予定を編集`;
+      document.getElementById('add-modal-tabs').style.display = 'flex';
+      document.getElementById('save-schedule-btn').innerText = '変更を保存';
+
+      document.getElementById('add-start-date').value = task.date.replace(/\//g, '-');
+      document.getElementById('add-end-date').value = (task.endDate || task.date).replace(/\//g, '-');
+      document.getElementById('add-start-time').value = task.startTime || '';
+      document.getElementById('add-end-time').value = task.endTime || '';
+      document.getElementById('add-schedule-memo').value = task.memo || '';
+      
+      const color = task.color || '#de9610';
+      document.getElementById('add-schedule-color').value = color;
+      document.querySelectorAll('.schedule-swatch').forEach(s => {
+        s.classList.remove('selected');
+        if(s.style.backgroundColor === color || rgbToHex(s.style.backgroundColor) === color) s.classList.add('selected');
+      });
+
+      switchAddTab(task.type);
+      if(task.type === 'general') {
+        document.getElementById('add-general-title').value = task.title;
+      } else {
+        document.getElementById('add-textbook-select').value = task.textbookId;
+      }
+      document.getElementById('add-modal').style.display = 'flex';
+    }
+
+    function rgbToHex(rgb) {
+      if (!rgb || rgb.indexOf('rgb') !== 0) return rgb;
+      const rgbValues = rgb.match(/\d+/g);
+      if (!rgbValues || rgbValues.length < 3) return rgb;
+      return "#" + ((1 << 24) + (parseInt(rgbValues[0]) << 16) + (parseInt(rgbValues[1]) << 8) + parseInt(rgbValues[2])).toString(16).slice(1);
+    }
+
+    function openProgressModal(task) {
+      selectedSchedule = task;
+      document.getElementById('progress-modal').style.display = 'flex';
+      
+      let timeTxt = "";
+      if(task.date !== (task.endDate || task.date)) timeTxt += `期間: ${task.date}〜${task.endDate} `;
+      if(task.startTime && task.endTime) timeTxt += `⏰ ${task.startTime}〜${task.endTime}`;
+      else if(task.startTime) timeTxt += `⏰ ${task.startTime}〜`;
+      document.getElementById('progress-time-display').innerText = timeTxt;
+
+      const memoContainer = document.getElementById('progress-memo-container');
+      if (task.memo) { memoContainer.innerText = task.memo; memoContainer.style.display = 'block'; } 
+      else memoContainer.style.display = 'none';
+      
+      if (task.type === 'general') {
+        document.getElementById('progress-title').innerHTML = `<i class="fa-solid fa-calendar-day"></i> ${task.title}`;
+        document.getElementById('progress-fields').style.display = 'none'; 
+        document.getElementById('save-progress-btn').style.display = 'none'; 
+      } else {
+        document.getElementById('progress-title').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> ${task.textbookName}`;
+        document.getElementById('progress-fields').style.display = 'block';
+        document.getElementById('save-progress-btn').style.display = 'block';
+        document.getElementById('progress-range-label').innerText = `全体範囲: p${task.startPage} 〜 p${task.endPage}`;
+        
+        document.getElementById('progress-session-start').value = task.sessionStart || '';
+        document.getElementById('progress-session-end').value = task.sessionEnd || '';
+        document.getElementById('progress-iteration').value = task.iteration || 1;
+      }
+    }
+
+    function openSettingsModal() {
+      const container = document.getElementById('settings-textbook-list');
+      container.innerHTML = '';
+      masterTextbooks.forEach(tb => renderTextbookRow(tb.id, tb.name, tb.startPage, tb.endPage));
+      
+      const root = getComputedStyle(document.documentElement);
+      document.getElementById('setting-bg-color').value = root.getPropertyValue('--bg-dark').trim() || '#0d0015';
+      document.getElementById('setting-text-color').value = root.getPropertyValue('--text-main').trim() || '#fef4f4';
+      document.getElementById('setting-accent-color').value = root.getPropertyValue('--yozakura-purple').trim() || '#c77dff';
+      document.getElementById('setting-iter1-color').value = root.getPropertyValue('--iter1-color').trim() || '#65ace4';
+      document.getElementById('setting-iter2-color').value = root.getPropertyValue('--iter2-color').trim() || '#a0c238';
+      document.getElementById('setting-iter3-color').value = root.getPropertyValue('--iter3-color').trim() || '#d16b16';
+      
+      document.getElementById('settings-gas-url').value = localStorage.getItem('yozakuraGasUrl') || '';
+      document.getElementById('settings-modal').style.display = 'flex';
+    }
+
+    function renderTextbookRow(id, name, start, end) {
+      const container = document.getElementById('settings-textbook-list');
+      const div = document.createElement('div'); div.className = 'textbook-item'; div.dataset.id = id;
+      div.innerHTML = `
+        <input type="text" class="tb-name" value="${name}" placeholder="教材名" style="padding:8px;">
+        <input type="number" class="tb-start" value="${start}" placeholder="開始" style="padding:8px;">
+        <input type="number" class="tb-end" value="${end}" placeholder="終了" style="padding:8px;">
+        <button class="btn btn-danger" style="padding:0 12px;" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>`;
+      container.appendChild(div);
+    }
+
+    function addTextbookRow() { renderTextbookRow('', '', 0, 100); }
+
+    // モーダルを閉じる時にスタイル（transform）を綺麗にリセットする
+    function closeModal(id) { 
+      const modal = document.getElementById(id);
+      if(modal) {
+        modal.style.display = 'none';
+        const content = modal.querySelector('.modal-content');
+        if(content) content.style.transform = '';
+      }
+    }
+  </script>
+</body>
+</html>
