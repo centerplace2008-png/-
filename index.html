@@ -332,6 +332,8 @@
   <header>
     <h1><i class="fa-solid fa-moon"></i> 夜桜カレンダー Pro</h1>
     <div class="header-actions">
+      <!-- 手動再読み込みボタン -->
+      <i class="fa-solid fa-rotate-right settings-icon" onclick="location.reload()" title="再読み込み"></i>
       <i class="fa-solid fa-gear settings-icon" onclick="openSettingsModal()" title="設定"></i>
     </div>
   </header>
@@ -537,6 +539,11 @@
       setupEventListeners();
       setupSwipeEvents();
       setupSheetSwipeEvents();
+
+      // ネットワーク復帰時に自動でリロードをかける
+      window.addEventListener('online', () => {
+        location.reload();
+      });
     });
 
     window.addEventListener('firebaseBridgeReady', () => {
@@ -607,31 +614,37 @@
       }
     }
 
-    // --- ボトムシートの下スワイプで閉じる機能 ---
+    // --- 【改善版】ボトムシートの下スワイプで閉じる機能 ---
     function setupSheetSwipeEvents() {
       const modals = document.querySelectorAll('.modal');
       modals.forEach(modal => {
         const content = modal.querySelector('.modal-content');
-        if (!content) return;
+        const handle = modal.querySelector('.sheet-handle'); // 取っ手
+        const header = modal.querySelector('h3');            // 見出し
+
+        if (!content || !handle) return;
 
         let startY = 0;
         let currentY = 0;
         let isDragging = false;
 
-        content.addEventListener('touchstart', e => {
+        // スワイプ開始判定を取っ手と見出しのみに限定する
+        const startDrag = (e) => {
           if (content.scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isDragging = true;
-            content.style.transition = 'none';
-          } else {
-            isDragging = false;
+            content.style.transition = 'none'; 
           }
-        }, { passive: true });
+        };
+
+        handle.addEventListener('touchstart', startDrag, { passive: true });
+        if(header) header.addEventListener('touchstart', startDrag, { passive: true });
 
         content.addEventListener('touchmove', e => {
           if (!isDragging) return;
           currentY = e.touches[0].clientY;
           const deltaY = currentY - startY;
+
           if (deltaY > 0) {
             content.style.transform = `translateY(${deltaY}px)`;
           }
@@ -641,8 +654,10 @@
           if (!isDragging) return;
           isDragging = false;
           content.style.transition = 'transform 0.25s cubic-bezier(0.1, 0.9, 0.2, 1)';
+          
           const deltaY = currentY - startY;
-          if (deltaY > 70) {
+          // 閉じる判定を70pxから100pxに増やし、誤爆を防止
+          if (deltaY > 100) {
             content.style.transform = 'translateY(100%)';
             setTimeout(() => {
               modal.style.display = 'none';
