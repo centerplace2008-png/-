@@ -364,7 +364,7 @@
   </div>
 
   <header>
-    <h1><i class="fa-solid fa-moon"></i> 夜桜カレンダー Pro</h1>
+    <h1><i class="fa-solid fa-moon"></i> カレンダー</h1>
     <div class="header-actions">
       <i class="fa-solid fa-rotate-right settings-icon" onclick="location.reload()" title="再読み込み"></i>
       <i class="fa-solid fa-gear settings-icon" onclick="openSettingsModal()" title="設定"></i>
@@ -413,7 +413,7 @@
           <span><i class="fa-solid fa-note-sticky"></i> この日のメモ</span>
           <span id="daily-memo-save-msg" style="font-size:0.7rem; color:var(--text-sub); display:none;">保存済み</span>
         </div>
-        <textarea class="daily-memo-textarea" id="daily-memo-input" placeholder="この日に関するメモ（課題提出、持ち物など）..."></textarea>
+        <textarea class="daily-memo-textarea" id="daily-memo-input" placeholder="メモ"></textarea>
       </div>
 
       <div class="daily-schedule-list" id="daily-schedule-list"></div>
@@ -436,7 +436,7 @@
       </div>
 
       <div class="form-group">
-        <label>期間（開始日 〜 終了日）</label>
+        <label>期間</label>
         <div class="date-range-row">
           <div><input type="date" id="add-start-date"></div>
           <span style="color:var(--text-sub);">〜</span>
@@ -445,7 +445,7 @@
       </div>
 
       <div class="form-group">
-        <label>時間指定（任意）</label>
+        <label>時間</label>
         <div class="date-range-row">
           <div><input type="time" id="add-start-time"></div>
           <span style="color:var(--text-sub);">〜</span>
@@ -462,20 +462,20 @@
 
       <div id="area-general" style="display:none;">
         <div class="form-group">
-          <label>予定のタイトル</label>
-          <input type="text" id="add-general-title" placeholder="例: 模試、部活、イベント">
+          <label>タイトル</label>
+          <input type="text" id="add-general-title" placeholder="タイトル">
         </div>
       </div>
 
       <div class="form-group">
-        <label>予定バーの色</label>
+        <label>色</label>
         <div class="schedule-color-palette" id="schedule-color-palette"></div>
         <input type="hidden" id="add-schedule-color" value="#de9610">
       </div>
 
       <div class="form-group">
         <label>メモ</label>
-        <textarea id="add-schedule-memo" rows="2" placeholder="予定に関するメモ書き..."></textarea>
+        <textarea id="add-schedule-memo" rows="2" placeholder=""></textarea>
       </div>
 
       <div class="modal-actions">
@@ -530,7 +530,7 @@
       <div class="sheet-handle-area"><div class="sheet-handle"></div></div>
       <h3><i class="fa-solid fa-gear"></i> システム設定</h3>
       
-      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-book"></i> 教材マスタ管理</h4>
+      <h4 style="color:var(--yozakura-purple); margin:10px 0 8px 0; font-size:0.95rem;"><i class="fa-solid fa-book"></i> 教材管理</h4>
       <div id="settings-textbook-list" style="max-height:220px; overflow-y:auto; padding-right:5px; margin-bottom:10px;"></div>
       <button class="btn" onclick="addTextbookRow()" style="width:100%; justify-content:center; margin-bottom:20px;"><i class="fa-solid fa-plus"></i> 教材を追加</button>
 
@@ -998,7 +998,7 @@
       const container = document.getElementById('library-cards-container');
       container.innerHTML = '';
       if (window.masterTextbooks.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-sub); font-size: 0.85rem; text-align: center; padding: 20px;">教材が登録されていません。右上の歯車アイコンから登録してください。</p>`;
+        container.innerHTML = `<p style="color: var(--text-sub); font-size: 0.85rem; text-align: center; padding: 20px;">教材が登録されていません。</p>`;
         return;
       }
 
@@ -1081,7 +1081,7 @@
       });
 
       if (dayTasks.length === 0) {
-        listContainer.innerHTML = `<div style="text-align:center; padding:30px 10px; color:var(--text-sub); font-size:0.85rem;">予定はありません。「＋ 新規予定」から追加できます。</div>`;
+        listContainer.innerHTML = `<div style="text-align:center; padding:30px 10px; color:var(--text-sub); font-size:0.85rem;">予定はありません</div>`;
       } else {
         dayTasks.forEach(task => {
           const card = document.createElement('div');
